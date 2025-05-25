@@ -8,6 +8,9 @@ class Board:
             if i < 2:
                 print("===========")
 
+    def clear_board(self):
+        self.grid = [[" ", " ", " "], [" ", " ", " "], [" ", " ", " "]]
+
     def get_cell(self, row, col):
         if not self.is_in_bounds(row, col):
             return None
@@ -32,6 +35,21 @@ class Board:
         else:
             return False
         
+    def get_valid_moves(self):
+        valid_moves = []
+        for i in range(3):
+            for j in range(3):
+                if self.is_cell_empty(i, j):
+                    valid_moves.append((i,j))
+        return valid_moves
+        
+    def convert_to_string(self):
+        board_str = ""
+        for i in range(3):
+            for j in range(3):
+                board_str += self.grid[i][j]
+        return board_str        
+
     def play_move(self, row, col, symbol):
         if not self.is_valid_move(row, col):
             return None
