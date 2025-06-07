@@ -13,6 +13,8 @@ class GameDriver:
             self.p1 = HumanPlayer("X")
         elif p1type == "heuristic":
             self.p1 = HeuristicPlayer("X")
+        elif p1type == "mcts":
+            self.p1 = MctsPlayer("X")
         else:
             print("Invalid player 1 type")
             exit(-1)
@@ -24,6 +26,8 @@ class GameDriver:
             self.p2 = RandomPlayer("O")
         elif p2type == "heuristic":
             self.p2 = HeuristicPlayer("O")
+        elif p2type == "mcts":
+            self.p2 = MctsPlayer("O")
         else:
             print("Invalid player 2 type")
             exit(-1)
@@ -36,6 +40,7 @@ class GameDriver:
         self.board = Board()
         self.num_of_games = int(num_of_games)
         self.learning_rate = float(learning_rate)
+        self.boards_visited = []
 
     def process_move(self, curr_player):
         invalid_move = True
@@ -52,12 +57,14 @@ class GameDriver:
 
     def run(self):
         self.board.clear_board()
+        self.boards_visited.append(self.board.grid)
         toggle = 0
         curr_player = self.p1 # player 1 starts the game
         if self.display:
             self.board.display()
         while(True):
             self.process_move(curr_player)
+            self.boards_visited.append(self.board.grid)
             if self.display: 
                 self.board.display()
             # check winner or tie
@@ -93,9 +100,31 @@ def make_plots(games_played, win_percentages, boards_searched, learn):
         plt.show()
 
 
+def mcts_update_values(winner, game):
+    games_won_at_board = 0
+    if winner == 1:
+        games_won_at_board = 1
+    else:
+        games_won_at_board = 0
+    # update board values 
+    for board in game.boards_visited:
+        symmetric_boards = game.board.get_symmetric_boards(board)
+        symmetric_boards_strs = game.board.convert_symmetric_boards_to_str(symmetric_boards)
+        board_not_in_values = True
+        active_board = ""
+        for b in symmetric_boards_strs:
+            if b in game.p1.values.keys():
+                board_not_in_values = False
+                active_board = b
+        if board_not_in_values :
+            game.p1.values[symmetric_boards_strs[0]] = (games_won_at_board,1)
+        else:
+            game.p1.values[active_board] = (games_won_at_board + game.p1.values[active_board][0],1+game.p1.values[active_board][1])
+
 def main():
     game = GameDriver(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
-    learn = sys.argv[1] == "learning" 
+    learn = sys.argv[1] == "learning"
+    mcts = sys.argv[1] == "mcts"
     player_X_wins, player_O_wins = 0, 0
     games_played, win_percentages, boards_searched = [], [], []
     for i in range(game.num_of_games):
@@ -110,9 +139,19 @@ def main():
             win_percentages.append(((player_X_wins / i) * 100))
             if learn:
                 boards_searched.append(len(game.p1.values.keys()))
+        if mcts:
+            # print(f"After game {i}")
+            # print(game.p1.values)
+            # print("=========================")
+            # print(len(game.boards_visited))
+            # print("=========================")
+            mcts_update_values(winner, game)
+            
+    # print simulation results
     print(f"player X won {player_X_wins}/{game.num_of_games} games ({((player_X_wins / game.num_of_games) * 100):.2f}%)")
     print(f"player O won {player_O_wins}/{game.num_of_games} games ({((player_O_wins / game.num_of_games) * 100):.2f}%)")
     print(f"There were {game.num_of_games - player_X_wins - player_O_wins} ties!")  
+    print(game.p1.values)
     if learn:
         print(f"boards searched: {len(game.p1.values.keys())}")
     make_plots(games_played, win_percentages, boards_searched, learn)
