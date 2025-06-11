@@ -1,4 +1,5 @@
 import random
+from Board import *
 
 class Player:
     def __init__(self, symbol):
@@ -58,25 +59,44 @@ class Player:
     
     def get_move_string_index(self, row, col):
         return (3 * row) + col
-    
-class HumanPlayer(Player):
-    def __init__(self, symbol):
-        Player.__init__(self, symbol)
-    
-    def get_move(self, board, lr):
-        row = int(input("Enter row: "))
-        col = int(input("Enter col: "))
-        return (row, col)
+
 
 class RandomPlayer(Player):
     def __init__(self, symbol):
         Player.__init__(self, symbol)
 
-    def get_move(self, board, lr):
+    def get_move(self, board):
         possible_moves = board.get_valid_moves()
         n = random.randint(0,len(possible_moves)-1)
         return possible_moves[n]
     
+
+class NotRandomPlayer(Player):
+    def __init__(self, symbol):
+        Player.__init__(self, symbol)
+
+    def get_move(self, board):
+        possible_moves = board.get_valid_moves()
+        if (0,0) in possible_moves:
+            return (0,0)
+        elif (0,1) in possible_moves:
+            return (0,1)
+        elif (0,2) in possible_moves:
+            return (0,2)
+        elif (1,0) in possible_moves:
+            return (1,0)
+        elif (1,1) in possible_moves:
+            return (1,1)
+        elif (1,2) in possible_moves:
+            return (1,2)
+        elif (2,0) in possible_moves:
+            return (2,0)
+        elif (2,1) in possible_moves:
+            return (2,1)
+        else:
+            return (2,2)
+
+
 class HeuristicPlayer(Player):
     def __init__(self, symbol):
         Player.__init__(self, symbol)
@@ -106,7 +126,7 @@ class HeuristicPlayer(Player):
                 return True
         return False
 
-    def get_move(self, board, lr):
+    def get_move(self, board):
         possible_moves = board.get_valid_moves()
         # 20 % chance to choose random move -- ensure imperfect player
         if random.randint(0,5) == 0:
@@ -131,61 +151,12 @@ class HeuristicPlayer(Player):
             else:
                 return random.choice(non_losing_moves)
         return random.choice(possible_moves)
-
-class LearningPlayer(Player):
-    """
-    Implements temporal difference learning
-    """
-    def __init__(self, symbol):
-        Player.__init__(self, symbol)
-        """
-        represent each board state as a string with 9 characters
-        characters 0-2 are the first row, 3-5 second row, 6-8 third row
-        """
-        self.values = {"         ": 0.5}
-
-    def get_move(self, board, lr):
-        """
-        check all possible moves, get their values, or append new values to values dictionary
-        """
-        possible_moves = board.get_valid_moves()
-        # select non greedy move 1% of the time
-        if random.randint(0,100) == 0: 
-            return random.choice(possible_moves)
-        best_move_val = 0
-        best_moves = []
-        # add current board to values table if it is not already in the table
-        symmetric_boards = board.get_symmetric_boards()
-        symmetric_boards_strs = board.convert_symmetric_boards_to_str(symmetric_boards)
-        board_not_in_values = True
-        for board in symmetric_boards_strs:
-            if board in self.values.keys():
-                board_not_in_values = False
-        if board_not_in_values :
-            self.values[symmetric_boards_strs[0]] = self.get_board_string_value(symmetric_boards_strs[0])
-        # iterate through all moves and get the move with the highest value
-        for r,c in possible_moves:
-            move_idx = self.get_move_string_index(r,c)
-            new_board_string = symmetric_boards_strs[0][:move_idx] + self.get_symbol() + symmetric_boards_strs[0][move_idx+1:]
-            # if board resulting from curr possible move not in values dictionary yet
-            if new_board_string not in self.values.keys():
-                new_board_string_val = self.get_board_string_value(new_board_string)
-                self.values[new_board_string] = new_board_string_val
-            if self.values[new_board_string] > best_move_val:
-                best_moves = [(r,c,new_board_string)]
-                best_move_val = self.values[new_board_string]
-            elif self.values[new_board_string] == best_move_val:
-                best_moves.append((r,c,new_board_string))
-        # randomly select move from the best_moves array
-        best_move = random.choice(best_moves)
-        # update value of old state using V(s) := V(s) + a[V(s')-V(s)]
-        self.values[symmetric_boards_strs[0]] = self.values[symmetric_boards_strs[0]] + lr * (self.values[best_move[2]] - self.values[symmetric_boards_strs[0]])
-        return (best_move[0], best_move[1])
     
 
-class MctsPlayer(Player):
+class EpsilonGreedyPlayer(Player):
     """
-    Uses monte carlo tree search
+    Use epsilon greedy approach to choose best move
+    Use Q_k+1 = Q_k + 1/k (R_k - Q_k) as action values
     """
     def __init__(self, symbol):
         Player.__init__(self, symbol)
@@ -195,12 +166,12 @@ class MctsPlayer(Player):
         """
         self.values = {}
 
-    def get_move(self, board, lr):
+    def get_move(self, board):
         """
         check all possible moves, get their values, or append new values to values dictionary
         """
         possible_moves = board.get_valid_moves()
-        # select non greedy move 1% of the time
+        # select non greedy move epsilon% of the time currently epsilon = 0.01
         if random.randint(0,100) == 0: 
             return random.choice(possible_moves)
         best_move_val = 0
